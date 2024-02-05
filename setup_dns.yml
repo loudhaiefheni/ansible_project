@@ -1,0 +1,28 @@
+- hosts: all
+  become: yes
+  tasks:
+    - name: Install BIND DNS Server
+      apt:
+        name: bind9
+        state: present
+
+    - name: Configure DNS Zone for Site 1
+      template:
+        src: db.site1.j2
+        dest: /etc/bind/db.site1
+      when: inventory_hostname in groups['site1']
+      notify: restart bind9
+
+    - name: Configure DNS Zone for Site 2
+      template:
+        src: db.site2.j2
+        dest: /etc/bind/db.site2
+      when: inventory_hostname in groups['site2']
+      notify: restart bind9
+
+  handlers:
+    - name: restart bind9
+      service:
+        name: bind9
+        state: restarted
+

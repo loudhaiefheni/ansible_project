@@ -1,0 +1,42 @@
+---
+- name: Configure DHCP Server for Site 1
+  hosts: site1
+  become: yes
+  vars:
+    dhcp_interface: enp0s8
+    dhcp_subnet: 192.168.56.0
+    dhcp_netmask: 255.255.255.0
+    dhcp_range_start: 192.168.56.100
+    dhcp_range_end: 192.168.56.200
+    dhcp_routers: 192.168.56.1
+    dhcp_broadcast: 192.168.56.255
+    dhcp_dns_servers: 192.168.56.1
+    dhcp_default_lease_time: 600
+    dhcp_max_lease_time: 7200
+  tasks:
+    - name: Install DHCP Server
+      apt:
+        name: isc-dhcp-server
+        state: present
+
+    - name: Configure DHCP Server
+      block:
+        - name: Set up dhcpd.conf
+          template:
+            src: dhcpd.conf.j2
+            dest: /etc/dhcp/dhcpd.conf
+          notify: restart isc-dhcp-server
+
+        - name: Configure INTERFACESv4
+          lineinfile:
+            path: /etc/default/isc-dhcp-server
+            regexp: '^INTERFACESv4='
+            line: 'INTERFACESv4="{{ dhcp_interface }}"'
+            create: yes
+          notify: restart isc-dhcp-server
+  handlers:
+    - name: restart isc-dhcp-server
+      service:
+        name: isc-dhcp-server
+        state: restarted
+
