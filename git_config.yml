@@ -1,0 +1,22 @@
+---
+- name: Install Git and configure Git user and email
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Git
+      apt:
+        name: git
+        state: present
+      become: true
+
+    - name: Set Git user name
+      git_config:
+        name: user.name
+        value: loudhaiefheni
+        scope: global
+
+    - name: Set Git user email
+      git_config:
+        name: user.email
+        value: loudhaiefheni74@gmail.com
+        scope: global
