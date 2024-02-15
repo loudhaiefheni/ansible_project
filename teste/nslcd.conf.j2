@@ -1,0 +1,18 @@
+uid nslcd
+gid nslcd
+
+uri ldap://ldap-master.istycorp.fr:8080
+base dc=istycorp,dc=fr
+
+# If you require TLS/SSL
+#ssl on
+#tls_reqcert never
+tls_cacertfile /etc/ssl/certs/ca-certificates.crt
+
+# If you require binding with a user
+#binddn cn=admin,dc=istycorp,dc=fr
+#bindpw secret
+
+# Specify the LDAP version if necessary
+ldap_version 3
+

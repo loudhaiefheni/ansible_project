@@ -1,0 +1,55 @@
+---
+- name: Configure LDAP client and PAM
+  hosts: all
+  become: yes
+  tasks:
+    # Install necessary packages
+    - name: Ensure LDAP client packages are installed
+      apt:
+        name:
+          - libnss-ldap
+          - libpam-ldap
+          - nscd
+          - nslcd
+        state: present
+
+    # Update nslcd.conf with the LDAP server details
+    - name: Update nslcd.conf with server URI and base DN
+      template:
+        src: nslcd.conf.j2
+        dest: /etc/nslcd.conf
+      notify: restart nslcd
+
+    # Update nsswitch.conf to use LDAP for passwd, group, and shadow
+    - name: Update nsswitch.conf to use LDAP
+      lineinfile:
+        path: /etc/nsswitch.conf
+        regexp: '^(passwd|group|shadow):(.*)$'
+        line: '\1: files ldap'
+      notify: restart nscd
+
+    # Configure PAM to use LDAP for authentication
+    - name: Configure PAM to use LDAP for authentication
+      blockinfile:
+        path: "{{ item }}"
+        block: |
+          auth    sufficient      pam_ldap.so
+          account sufficient      pam_ldap.so
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+      with_items:
+        - /etc/pam.d/common-auth
+        - /etc/pam.d/common-account
+        - /etc/pam.d/common-password
+        - /etc/pam.d/common-session
+
+    # Restart services to apply changes
+  handlers:
+    - name: restart nslcd
+      service:
+        name: nslcd
+        state: restarted
+
+    - name: restart nscd
+      service:
+        name: nscd
+        state: restarted

@@ -1,0 +1,39 @@
+---
+- name: Configure slapd
+  hosts: all
+  become: yes  # Necessary to have root privileges
+
+  tasks:
+    - name: Ensure slapd is installed
+      apt:
+        name: slapd
+        state: present
+
+    - name: Stop slapd service before reconfiguration
+      service:
+        name: slapd
+        state: stopped
+
+    - name: Preseed slapd debconf values
+      debconf:
+        name: slapd
+        question: "{{ item.question }}"
+        vtype: "{{ item.vtype }}"
+        value: "{{ item.value }}"
+        unseen: "{{ item.unseen | default('no') }}"
+      with_items:
+        - { question: 'slapd/no_configuration', vtype: 'boolean', value: 'false' }
+        - { question: 'slapd/domain', vtype: 'string', value: 'istycorp.fr' }
+        - { question: 'slapd/organization', vtype: 'string', value: 'istycorp' }
+        - { question: 'slapd/password1', vtype: 'password', value: 'Heni123456789!', unseen: 'yes' }
+        - { question: 'slapd/password2', vtype: 'password', value: 'Heni123456789!', unseen: 'yes' }
+        - { question: 'slapd/purge_database', vtype: 'boolean', value: 'true' }
+        - { question: 'slapd/move_old_database', vtype: 'boolean', value: 'true' }
+
+    - name: Reconfigure slapd
+      command: dpkg-reconfigure -f noninteractive slapd
+
+    - name: Start slapd service after reconfiguration
+      service:
+        name: slapd
+        state: started

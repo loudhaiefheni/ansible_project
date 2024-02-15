@@ -23,7 +23,7 @@
       block:
         - name: Set up dhcpd.conf
           template:
-            src: dhcpd.conf.j2
+            src: templates/dhcpd.conf.j2
             dest: /etc/dhcp/dhcpd.conf
           notify: restart isc-dhcp-server
 

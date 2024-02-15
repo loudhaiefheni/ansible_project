@@ -34,7 +34,7 @@
 
     - name: Configure WireGuard interface
       template:
-        src: wg0.conf.j2
+        src: templates/wg0.conf.j2
         dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
       notify: Restart WireGuard
 

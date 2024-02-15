@@ -1,6 +1,6 @@
 ---
 - name: Configurer les clients LDAP pour l'authentification SSH
-  hosts: clients_ldap
+  hosts: all
   become: yes
 
   tasks:
@@ -18,7 +18,7 @@
         dest: /etc/nslcd.conf
         owner: root
         group: root
-        mode: '0644'
+        mode: '0600'
 
     - name: Redémarrer le service nslcd
       service:

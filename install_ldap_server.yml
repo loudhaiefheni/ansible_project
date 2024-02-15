@@ -21,7 +21,7 @@
 
     - name: Copier les fichiers LDIF sur le serveur
       copy:
-        src: "{{ item }}"
+        src: "templates/{{ item }}"
         dest: "/tmp/{{ item }}"
       with_items:
         - base_dn.ldif
@@ -30,7 +30,7 @@
 
     - name: Copier et ajouter les fichiers LDIF pour les utilisateurs et les groupes
       copy:
-        src: "{{ item }}"
+        src: "templates/{{ item }}"
         dest: "/tmp/{{ item }}"
       loop:
         - user_site1.ldif
@@ -69,7 +69,7 @@
       block:
         - name: Copier les fichiers LDIF sur le serveur
           copy:
-            src: "{{ item }}"
+            src: "templates/{{ item }}"
             dest: "/tmp/{{ item }}"
           loop:
             - user_site1.ldif
