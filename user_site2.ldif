@@ -1,0 +1,12 @@
+dn: uid=user_site2,ou=people,dc=istycorp,dc=fr
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: top
+cn: user_site2
+sn: user2
+uid: user_site2
+uidNumber: 10002
+gidNumber: 5001
+homeDirectory: /home/user_site2
+loginShell: /bin/bash
+userPassword: {SSHA}passwordUserSite2

@@ -1,0 +1,46 @@
+---
+- name: Configure WireGuard on all VMs
+  hosts: all
+  become: true
+  vars:
+    wireguard_interface: wg0
+    wireguard_port: 51820
+    wireguard_network: 10.0.0
+  tasks:
+    - name: Install WireGuard
+      apt:
+        name: wireguard
+        state: latest
+      when: ansible_os_family == "Debian"
+
+    - name: Generate private keys
+      command: wg genkey
+      register: wg_private_key
+      changed_when: false
+
+    - name: Save private keys
+      copy:
+        dest: "/etc/wireguard/privatekey"
+        content: "{{ wg_private_key.stdout }}"
+        mode: '0600'
+      notify: Restart WireGuard
+
+    - name: Generate public keys
+      shell: wg pubkey
+      args:
+        stdin: "{{ wg_private_key.stdout }}"
+      register: wg_public_key
+      changed_when: false
+
+    - name: Configure WireGuard interface
+      template:
+        src: wg0.conf.j2
+        dest: "/etc/wireguard/{{ wireguard_interface }}.conf"
+      notify: Restart WireGuard
+
+  handlers:
+    - name: Restart WireGuard
+      systemd:
+        name: "wg-quick@{{ wireguard_interface }}"
+        state: restarted
+        enabled: true

@@ -1,0 +1,3 @@
+dn: ou=groups,dc=istycorp,dc=fr
+objectClass: organizationalUnit
+ou: groups

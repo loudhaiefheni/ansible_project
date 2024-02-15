@@ -1,0 +1,26 @@
+---
+- name: Configurer les clients LDAP pour l'authentification SSH
+  hosts: clients_ldap
+  become: yes
+
+  tasks:
+    - name: Installer les paquets nécessaires pour NSS et PAM
+      apt:
+        name:
+          - libnss-ldapd
+          - libpam-ldapd
+          - nslcd
+        state: present
+
+    - name: Configurer nslcd avec les détails du serveur LDAP
+      template:
+        src: nslcd.conf.j2
+        dest: /etc/nslcd.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Redémarrer le service nslcd
+      service:
+        name: nslcd
+        state: restarted

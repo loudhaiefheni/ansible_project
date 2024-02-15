@@ -1,0 +1,9 @@
+dn: cn=site1,ou=groups,dc=istycorp,dc=fr
+objectClass: top
+objectClass: posixGroup
+cn: site1
+gidNumber: 5001
+memberUid: user_site1
+memberUid: user_site2
+description: Users of Site 1
+

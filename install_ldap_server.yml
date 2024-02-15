@@ -1,0 +1,92 @@
+---
+- name: Installer et configurer le serveur LDAP
+  hosts: all
+  become: yes
+  vars_files:
+    - ldap_password.yml
+
+  tasks:
+    - name: Installer les paquets nécessaires pour OpenLDAP
+      apt:
+        name:
+          - slapd
+          - ldap-utils
+        state: present
+
+    - name: S'assurer que le service slapd est démarré
+      service:
+        name: slapd
+        state: started
+        enabled: yes
+
+    - name: Copier les fichiers LDIF sur le serveur
+      copy:
+        src: "{{ item }}"
+        dest: "/tmp/{{ item }}"
+      with_items:
+        - base_dn.ldif
+        - ou_groups.ldif
+        - ou_people.ldif
+
+    - name: Copier et ajouter les fichiers LDIF pour les utilisateurs et les groupes
+      copy:
+        src: "{{ item }}"
+        dest: "/tmp/{{ item }}"
+      loop:
+        - user_site1.ldif
+        - user_site2.ldif
+        - user_site3.ldif
+        - user_site4.ldif
+        - group_site1.ldif
+        - group_site2.ldif
+
+    - name: Arrêter le service slapd pour l'initialisation
+      service:
+        name: slapd
+        state: stopped
+
+    - name: Démarrer le service slapd après l'initialisation
+      service:
+        name: slapd
+        state: started
+
+    - name: Vérifier l'existence des données LDAP
+      command: sudo slapcat
+      register: ldap_data
+      changed_when: false
+
+    - name: Créer l'unité organisationnelle people si elle n'existe pas
+      command: ldapadd -x -D "cn=admin,dc=istycorp,dc=fr" -w "{{ ldap_admin_password }}" -f "/tmp/ou_people.ldif"
+      when: "'ou=people,dc=istycorp,dc=fr' not in ldap_data.stdout"
+      ignore_errors: yes
+
+    - name: Créer l'unité organisationnelle groups si elle n'existe pas
+      command: ldapadd -x -D "cn=admin,dc=istycorp,dc=fr" -w "{{ ldap_admin_password }}" -f "/tmp/ou_groups.ldif"
+      when: "'ou=groups,dc=istycorp,dc=fr' not in ldap_data.stdout"
+      ignore_errors: yes
+
+    - name: Copier et vérifier l'existence des fichiers LDIF pour les utilisateurs et les groupes avant d'ajouter
+      block:
+        - name: Copier les fichiers LDIF sur le serveur
+          copy:
+            src: "{{ item }}"
+            dest: "/tmp/{{ item }}"
+          loop:
+            - user_site1.ldif
+            - user_site2.ldif
+            - user_site3.ldif
+            - user_site4.ldif
+            - group_site1.ldif
+            - group_site2.ldif
+
+        - name: Ajouter les entrées LDIF si elles n'existent pas
+          command: ldapadd -x -D "cn=admin,dc=istycorp,dc=fr" -w "{{ ldap_admin_password }}" -f "/tmp/{{ item }}"
+          when: "item not in ldap_data.stdout"
+          loop:
+            - user_site1.ldif
+            - user_site2.ldif
+            - user_site3.ldif
+            - user_site4.ldif
+            - group_site1.ldif
+            - group_site2.ldif
+          ignore_errors: yes
