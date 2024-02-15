@@ -1,0 +1,86 @@
+---
+- name: Configurer le serveur NFS
+  hosts: 192.168.56.101
+  become: yes
+  tasks:
+    - name: Installer les paquets nécessaires pour NFS
+      apt:
+        name:
+          - nfs-kernel-server
+          - nfs-common
+        state: latest
+
+    - name: Créer les répertoires de partage NFS
+      file:
+        path: "/srv/nfs/{{ item }}"
+        state: directory
+        mode: '0777'
+      loop:
+        - public
+        - VM1
+        - VM2
+        - VM3
+        - VM4
+
+    - name: Configurer les exports NFS
+      copy:
+        dest: /etc/exports
+        content: |
+          /srv/nfs/public 10.0.0.0/24(rw,sync,no_subtree_check)
+          /srv/nfs/VM1 10.0.0.101/32(rw,sync,no_subtree_check)
+          /srv/nfs/VM2 10.0.0.102/32(rw,sync,no_subtree_check)
+          /srv/nfs/VM3 10.0.0.103/32(rw,sync,no_subtree_check)
+          /srv/nfs/VM4 10.0.0.104/32(rw,sync,no_subtree_check)
+
+      notify: redémarrer nfs
+
+  handlers:
+    - name: redémarrer nfs
+      service:
+        name: nfs-kernel-server
+        state: restarted
+
+- name: Monter les partages NFS sur les clients
+  hosts: site1:site2
+  become: yes
+  tasks:
+    - name: Installer les paquets nécessaires pour le client NFS
+      apt:
+        name: nfs-common
+        state: latest
+    - name: Vérifier si /mnt/public est un point de montage
+      command: mountpoint -q /mnt/public
+      register: is_mountpoint
+      failed_when: false
+      changed_when: false
+
+
+    - name: Démonter /mnt/public si c'est un point de montage
+      command: umount /mnt/public
+      when: is_mountpoint.rc == 0
+      become: yes
+
+    - name: Supprimer le répertoire /mnt/public si ce n'est pas un point de montage
+      file:
+        path: "/mnt/public"
+        state: absent
+      become: yes
+
+    - name: Monter le partage public
+      mount:
+        path: "/mnt/public"
+        src: "10.0.0.101:/srv/nfs/public"
+        fstype: nfs
+        opts: "defaults"
+        state: mounted
+      become: yes
+
+    - name: Monter le partage privé pour chaque VM
+      mount:
+        path: "/mnt/{{ ansible_hostname }}"
+        src: "10.0.0.101:/srv/nfs/{{ ansible_hostname }}"
+        fstype: nfs
+        opts: "defaults"
+        state: mounted
+      become: yes
+
