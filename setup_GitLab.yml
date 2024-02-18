@@ -1,0 +1,67 @@
+- name: Installer et configurer GitLab avec authentification LDAP
+  hosts: all
+  become: yes
+  vars:
+    gitlab_external_url: "https://gitlab.com/loudhaiefheni74"
+    ldap_admin_password: "{{ vault_ldap_admin_password }}" # Assurez-vous que cette variable est sécurisée dans un coffre Ansible
+    ldap_host: "ldap.istycorp.fr"
+    ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+    ldap_password: "{{ vault_ldap_admin_password }}" # Utilisez le même mot de passe que pour votre serveur LDAP, stocké de manière sécurisée
+    ldap_base: "dc=istycorp,dc=fr"
+
+  tasks:
+    - name: Installer les dépendances nécessaires pour GitLab
+      apt:
+        name:
+          - curl
+          - openssh-server
+          - ca-certificates
+          - postfix
+        state: present
+
+    - name: Télécharger le script d'installation de GitLab
+      get_url:
+        url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh
+        dest: /tmp/script.deb.sh
+        mode: '0755'
+
+    - name: Exécuter le script d'installation de GitLab
+      command: bash /tmp/script.deb.sh
+
+    - name: Installer GitLab CE
+      apt:
+        name: gitlab-ce
+        state: present
+      notify: Reconfigurer GitLab
+
+    - name: Configurer GitLab pour utiliser LDAP
+      blockinfile:
+        path: /etc/gitlab/gitlab.rb
+        block: |
+          gitlab_rails['ldap_enabled'] = true
+          gitlab_rails['ldap_servers'] = YAML.load <<-EOS
+            main:
+              label: 'LDAP'
+              host: '{{ ldap_host }}'
+              port: 389
+              uid: 'uid'
+              bind_dn: '{{ ldap_bind_dn }}'
+              password: '{{ ldap_password }}'
+              encryption: 'plain' # "start_tls" ou "simple_tls" ou "plain"
+              verify_certificates: true
+              smartcard_auth: false
+              active_directory: false
+              allow_username_or_email_login: false
+              lowercase_usernames: false
+              block_auto_created_users: false
+              base: '{{ ldap_base }}'
+              user_filter: ''
+              group_base: ''
+              admin_group: ''
+              sync_ssh_keys: false
+          EOS
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+
+  handlers:
+    - name: Reconfigurer GitLab
+      command: gitlab-ctl reconfigure

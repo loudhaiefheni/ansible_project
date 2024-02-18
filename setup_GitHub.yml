@@ -1,0 +1,27 @@
+---
+- name: Configurer l'intégration LDAP avec GitHub
+  hosts: all
+  become: yes
+  tasks:
+    - name: Installer le logiciel d'authentification LDAP-GitHub
+      apt:
+        name: auth-bridge-ldap
+        state: present
+
+    - name: Configuration de l'auth-bridge-ldap
+      template:
+        src: templates/auth-bridge-ldap.conf.j2
+        dest: /etc/auth-bridge-ldap.conf
+      vars:
+        ldap_server: "ldap://your.ldap.server"
+        ldap_base_dn: "dc=istycorp,dc=fr"
+        ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+        ldap_bind_password: "{{ ldap_admin_password }}"
+        github_client_id: "loudhaiefheni"
+        github_client_secret: "Sinda2805Nour"
+
+    - name: Redémarrer le service auth-bridge-ldap
+      service:
+        name: auth-bridge-ldap
+        state: restarted
+        enabled: yes

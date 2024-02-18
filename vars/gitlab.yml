@@ -1,0 +1,14 @@
+# URL externe pour accéder à GitLab
+gitlab_external_url: 'https://gitlab.com/loudhaiefheni74'
+
+# Détails de connexion au serveur LDAP
+ldap_host: 'ldap.istycorp.fr'
+ldap_port: 389  # Utiliser 389 pour LDAP sans SSL/TLS ou 636 pour LDAPS
+ldap_admin_password: 'Heni123456789!'
+
+# Configuration de GitLab
+# (Ces valeurs sont des exemples; ajustez-les selon vos besoins)
+gitlab_root_password: 'weldmostari020163#'
+gitlab_signup_enabled: false
+gitlab_signin_enabled: true
+

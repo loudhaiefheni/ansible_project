@@ -1,0 +1,18 @@
+# Fichier de configuration pour auth-bridge-ldap
+# Ce fichier est généré par Ansible, ne le modifiez pas directement.
+
+# Configuration du serveur LDAP
+ldap_server: "{{ ldap_server }}"
+ldap_base_dn: "{{ ldap_base_dn }}"
+ldap_bind_dn: "{{ ldap_bind_dn }}"
+ldap_bind_password: "{{ ldap_bind_password }}"
+
+# Configuration pour GitHub
+github_client_id: "{{ github_client_id }}"
+github_client_secret: "{{ github_client_secret }}"
+
+# Paramètres supplémentaires pour la sécurité et la performance
+# Ces valeurs sont des exemples et peuvent nécessiter des ajustements
+cache_timeout: 300
+ssl_verify: true
+log_level: INFO
