@@ -1,0 +1,62 @@
+---
+- name: Install and configure GitLab with LDAP
+  hosts: all
+  become: yes
+  vars:
+    ldap_password: "Heni123456789!"
+    ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+    ldap_host: "ldap.istycorp.fr"
+    ldap_port: 389
+    ldap_uid: "uid"
+    ldap_base: "ou=people,dc=istycorp,dc=fr"
+    gitlab_external_url: "http://gitlab.istycorp.fr"
+
+  tasks:
+    - name: Download GitLab installation script
+      get_url:
+        url: https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh
+        dest: /tmp/script.deb.sh
+        mode: '0775'
+
+    - name: Run GitLab installation script
+      command: /tmp/script.deb.sh
+
+    - name: Install GitLab
+      apt:
+        name: gitlab-ee
+        state: present
+
+    - name: Insert LDAP configuration into GitLab's configuration file
+      blockinfile:
+        path: /etc/gitlab/gitlab.rb
+        block: |
+          gitlab_rails['ldap_enabled'] = true
+          gitlab_rails['ldap_servers'] = YAML.load <<-EOS
+          main: 
+            label: 'LDAP'
+            host: '{{ ldap_host }}'
+            port: '{{ ldap_port }}'
+            uid: '{{ ldap_uid }}'
+            bind_dn: '{{ ldap_bind_dn }}'
+            password: '{{ ldap_password }}'
+            encryption: 'plain' # Start_tls, simple_tls or plain
+            verify_certificates: true
+            smartcard_auth: false
+            active_directory: false
+            allow_username_or_email_login: false
+            lowercase_usernames: false
+            block_auto_created_users: false
+            base: '{{ ldap_base }}'
+            user_filter: ''
+            group_base: ''
+            admin_group: ''
+            sync_ssh_keys: false
+          EOS
+      notify: reconfigure gitlab
+
+  handlers:
+    - name: run gitlab installation script
+      command: bash /tmp/install_gitlab.sh
+
+    - name: reconfigure gitlab
+      command: gitlab-ctl reconfigure

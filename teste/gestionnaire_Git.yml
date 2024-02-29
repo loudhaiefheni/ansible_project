@@ -1,0 +1,41 @@
+---
+- name: Configure Git server with LDAP authentication
+  hosts: all
+  become: yes
+  vars:
+    ldap_uri: "ldap://ldap.istycorp.fr"
+    ldap_base: "dc=istycorp,dc=fr"
+    ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+    ldap_bind_password: "Heni123456789!"
+    ldap_user_filter: "(uid=%(user)s)"
+    ldap_group_filter: "(memberUid=%(user)s)"
+    users:
+      - { uid: "user_site1", password: "UserSite1" }
+      - { uid: "user_site2", password: "UserSite2" }
+      - { uid: "user_site3", password: "UserSite3" }
+      - { uid: "user_site4", password: "UserSite4" }
+
+  tasks:
+    - name: Install GitLab
+      apt:
+        name: gitlab
+        state: latest
+
+    - name: Configure GitLab for LDAP authentication
+      template:
+        src: templates/gitlab.rb.j2
+        dest: /etc/gitlab/gitlab.rb
+      notify:
+        - reconfigure gitlab
+
+    - name: Create Git repositories for each user
+      git:
+        repo: "https://{{ item.uid }}:{{ item.password }}@gitlab.istycorp.fr/{{ item.uid }}/repository.git"
+        dest: "/home/{{ item.uid }}/repository"
+        clone: yes
+        update: yes
+      with_items: "{{ users }}"
+
+  handlers:
+    - name: reconfigure gitlab
+      command: gitlab-ctl reconfigure

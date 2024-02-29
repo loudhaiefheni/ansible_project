@@ -1,0 +1,101 @@
+---
+- name: Configurer le serveur LDAP
+  hosts: 192.168.56.101
+  become: true
+  tasks:
+    - name: Installation des paquets nécessaires pour LDAP
+      ansible.builtin.apt:
+        name:
+          - slapd
+          - ldap-utils
+        state: present
+
+    - name: Configurer le domaine et l'organisation LDAP
+      ansible.builtin.shell: |
+        echo "slapd slapd/internal/generated_adminpw password admin_password" | debconf-set-selections
+        echo "slapd slapd/internal/adminpw password admin_password" | debconf-set-selections
+        echo "slapd slapd/password2 password admin_password" | debconf-set-selections
+        echo "slapd slapd/password1 password admin_password" | debconf-set-selections
+        echo "slapd slapd/domain string istycorp.fr" | debconf-set-selections
+        echo "slapd shared/organization string istycorp" | debconf-set-selections
+        dpkg-reconfigure -f noninteractive slapd
+      args:
+        creates: /etc/ldap/slapd.d
+      vars:
+        admin_password: "Heni123456789!"
+
+- name: Configurer l'authentification LDAP sur les clients SSH
+  hosts: site1:site2
+  become: true
+  tasks:
+    - name: Installer les paquets nécessaires pour l'authentification LDAP
+      ansible.builtin.apt:
+        name:
+          - libnss-ldap
+          - libpam-ldap
+          - ldap-utils
+        state: present
+
+    - name: Configurer NSS pour utiliser LDAP
+      ansible.builtin.lineinfile:
+        path: /etc/nsswitch.conf
+        regexp: '^(passwd|group|shadow):.*'
+        line: '\1: files ldap'
+        state: present
+
+    - name: Configurer PAM pour utiliser LDAP pour l'authentification SSH
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/common-session
+        line: 'session required pam_mkhomedir.so skel=/etc/skel umask=0022'
+        insertafter: 'session\s+required\s+pam_unix.so'
+
+- name: Préparer le serveur LDAP pour la création d'utilisateurs
+  hosts: 192.168.56.101
+  become: true
+  tasks:
+    - name: Installer python-ldap pour permettre les opérations LDAP
+      ansible.builtin.apt:
+        name: python3-ldap
+        state: present
+
+    - name: Créer l'OU `people` pour les utilisateurs LDAP
+      community.general.ldap_entry:
+        dn: "ou=people,dc=istycorp,dc=fr"
+        objectClass: organizationalUnit
+        attributes:
+          ou: people
+        state: present
+      vars:
+        ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+        ldap_bind_pw: "Heni123456789!"
+        server_uri: "ldap://192.168.56.101"
+
+- name: Créer les utilisateurs LDAP
+  hosts: 192.168.56.101
+  become: true
+  tasks:
+    - name: Créer l'utilisateur LDAP
+      community.general.ldap_entry:
+        dn: "uid={{ item.uid }},ou=people,dc=istycorp,dc=fr"
+        objectClass:
+          - inetOrgPerson
+          - posixAccount
+          - top
+        attributes:
+          cn: "{{ item.cn }}"
+          sn: "{{ item.sn }}"
+          uid: "{{ item.uid }}"
+          uidNumber: "{{ item.uidNumber }}"
+          gidNumber: "{{ item.gidNumber }}"
+          homeDirectory: "{{ item.homeDirectory }}"
+          loginShell: "{{ item.loginShell }}"
+          userPassword: "{{ item.userPassword }}"
+        state: present
+      loop:
+        - { uid: "user_site1", cn: "user_site1", sn: "user1", uidNumber: "10001", gidNumber: "5001", homeDirectory: "/home/user_site1", loginShell: "/bin/bash", userPassword: "UserSite1" }
+        - { uid: "user_site2", cn: "user_site2", sn: "user2", uidNumber: "10002", gidNumber: "5002", homeDirectory: "/home/user_site2", loginShell: "/bin/bash", userPassword: "UserSite2" }
+        # Répétez ou ajoutez des utilisateurs supplémentaires selon les besoins
+      vars:
+        ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+        ldap_bind_pw: "Heni123456789!"
+        server_uri: "ldap://192.168.56.101"

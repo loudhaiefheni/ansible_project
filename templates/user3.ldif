@@ -1,0 +1,13 @@
+dn: uid=user3,ou=people,dc=istycorp,dc=fr
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: top
+cn: user3
+sn: user3
+uid: user3
+uidNumber: 10003
+gidNumber: 10003
+homeDirectory: /home/user3
+loginShell: /bin/bash
+mail: user3@istycorp.fr
+userPassword: user3!

@@ -24,7 +24,7 @@
         src: "templates/{{ item }}"
         dest: "/tmp/{{ item }}"
       with_items:
-        - base_dn.ldif
+#        - base_dn.ldif
         - ou_groups.ldif
         - ou_people.ldif
 
@@ -33,10 +33,10 @@
         src: "templates/{{ item }}"
         dest: "/tmp/{{ item }}"
       loop:
-        - user_site1.ldif
-        - user_site2.ldif
-        - user_site3.ldif
-        - user_site4.ldif
+        - user1.ldif
+        - user2.ldif
+        - user3.ldif
+        - user4.ldif
         - group_site1.ldif
         - group_site2.ldif
 
@@ -72,10 +72,10 @@
             src: "templates/{{ item }}"
             dest: "/tmp/{{ item }}"
           loop:
-            - user_site1.ldif
-            - user_site2.ldif
-            - user_site3.ldif
-            - user_site4.ldif
+            - user1.ldif
+            - user2.ldif
+            - user3.ldif
+            - user4.ldif
             - group_site1.ldif
             - group_site2.ldif
 
@@ -83,10 +83,10 @@
           command: ldapadd -x -D "cn=admin,dc=istycorp,dc=fr" -w "{{ ldap_admin_password }}" -f "/tmp/{{ item }}"
           when: "item not in ldap_data.stdout"
           loop:
-            - user_site1.ldif
-            - user_site2.ldif
-            - user_site3.ldif
-            - user_site4.ldif
+            - user1.ldif
+            - user2.ldif
+            - user3.ldif
+            - user4.ldif
             - group_site1.ldif
             - group_site2.ldif
           ignore_errors: yes

@@ -1,0 +1,38 @@
+[server]
+SSH_DOMAIN       = localhost
+DOMAIN           = localhost
+HTTP_PORT        = 3000
+ROOT_URL         = http://localhost:3000/
+DISABLE_SSH      = false
+SSH_PORT         = 22
+LFS_START_SERVER = true
+LFS_CONTENT_PATH = /var/lib/gitea/data/lfs
+
+[database]
+DB_TYPE  = sqlite3
+PATH     = /var/lib/gitea/gitea.db
+
+[security]
+INSTALL_LOCK = true
+SECRET_KEY   = ChangeMe
+
+[service]
+DISABLE_REGISTRATION              = false
+REQUIRE_SIGNIN_VIEW               = false
+REGISTER_EMAIL_CONFIRM            = false
+ENABLE_CAPTCHA                    = false
+DEFAULT_KEEP_EMAIL_PRIVATE        = false
+DEFAULT_ALLOW_CREATE_ORGANIZATION = true
+
+[auth]
+ENABLE_LDAP_AUTH                  = true
+LDAP_HOST                         = 
+LDAP_PORT                         = {{ ldap_port }}
+LDAP_BIND_DN                      = {{ ldap_bind_dn }}
+LDAP_BIND_PASSWORD                = {{ ldap_bind_password }}
+LDAP_USER_BASE                    = {{ ldap_user_base }}
+LDAP_ATTRIBUTE_USERNAME           = {{ ldap_attribute_username }}
+LDAP_ATTRIBUTE_NAME               = {{ ldap_attribute_name }}
+LDAP_ATTRIBUTE_SURNAME            = {{ ldap_attribute_surname }}
+LDAP_ATTRIBUTE_MAIL               = {{ ldap_attribute_mail }}
+LDAP_SEARCH_FILTER                = {{ ldap_search_filter }}

@@ -1,0 +1,75 @@
+- name: ADD user and configure Gitea with LDAP
+  hosts: all
+  become: yes
+  tasks:
+    - name: Set initial users list to empty
+      set_fact:
+        users: []
+
+    - name: Read LDIF files for users
+      set_fact:
+        users: "{{ users + [{'content': lookup('file', 'templates/' + item)}] }}"
+      loop:
+        - user1.ldif
+        - user2.ldif
+        - user3.ldif
+        - user4.ldif
+      loop_control:
+        loop_var: item
+
+    - name: Extract values from ldif content for each user
+      set_fact:
+        login_name: "{{ item.content | regex_search('uid=(.*?),ou=people', '\\1') | first }}"
+        username: "{{ item.content | regex_search('cn: (.*)', '\\1') | first }}"
+        email: "{{ item.content | regex_search('mail: (.*)', '\\1') | first }}"
+        password: "{{ item.content | regex_search('userPassword: (.*)', '\\1') | first }}"
+      loop: "{{ users }}"
+      loop_control:
+        loop_var: item
+
+
+    - name: Read Gitea API token from file
+      slurp:
+        src: /etc/gitea/token
+      register: gitea_api_token_raw
+
+    - name: Set Gitea API token variable
+      set_fact:
+        gitea_api_token: "{{ gitea_api_token_raw['content'] | b64decode | trim }}"
+
+    - name: Extract and set users information
+      set_fact:
+        users_info: "{{ users_info | default([]) + [ {'login_name': item.content | regex_search('uid=(.*?),ou=people', '\\1') | first, 'username': item.content | regex_search('cn: (.*)', '\\1') | first, 'email': item.content | regex_search('mail: (.*)', '\\1') | first, 'password': item.content | regex_search('userPassword: (.*)', '\\1') | first} ] }}"
+      loop: "{{ users }}"
+      loop_control:
+        loop_var: item
+
+    - name: Create Gitea users
+      uri:
+        url: "http://localhost:3000/api/v1/admin/users"
+        method: POST
+        body_format: json
+        headers:
+          Authorization: "token {{ gitea_api_token }}"
+        body:
+          source_id: 0
+          login_name: "{{ item.login_name }}"
+          username: "{{ item.username }}"
+          email: "{{ item.email }}"
+          password: "{{ item.password }}"
+          must_change_password: false
+          status_code: 201
+      loop: "{{ users_info }}"
+      register: create_users_response
+
+  handlers:
+    - name: Start Gitea service
+      systemd:
+        name: gitea
+        state: started
+        enabled: yes
+
+    - name: Restart Gitea service
+      systemd:
+        name: gitea
+        state: restarted

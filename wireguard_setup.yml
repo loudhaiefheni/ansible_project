@@ -4,7 +4,7 @@
   become: true
   vars:
     wireguard_interface: wg0
-    wireguard_port: 51820
+    wireguard_port: 51900
     wireguard_network: 10.0.0
   tasks:
     - name: Install WireGuard
@@ -17,6 +17,12 @@
       command: wg genkey
       register: wg_private_key
       changed_when: false
+
+    - name: Ensure WireGuard configuration directory exists
+      file:
+        path: "/etc/wireguard"
+        state: directory
+        mode: '0750'
 
     - name: Save private keys
       copy:

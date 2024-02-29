@@ -1,0 +1,50 @@
+---
+- name: Désinstaller et nettoyer le serveur LDAP
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Arrêter le service slapd avant la désinstallation
+      ansible.builtin.service:
+        name: slapd
+        state: stopped
+
+    - name: Désinstaller les paquets OpenLDAP
+      ansible.builtin.apt:
+        name:
+          - slapd
+          - ldap-utils
+        state: absent
+      notify: Purger les paquets OpenLDAP
+
+    - name: Supprimer les fichiers de configuration LDAP
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/ldap
+        - /var/lib/ldap
+
+    - name: Supprimer les fichiers LDIF temporairement stockés
+      ansible.builtin.file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - base_dn.ldif
+        - ou_groups.ldif
+        - ou_people.ldif
+        - user_site1.ldif
+        - user_site2.ldif
+        - user_site3.ldif
+        - user_site4.ldif
+        - group_site1.ldif
+        - group_site2.ldif
+
+  handlers:
+    - name: Purger les paquets OpenLDAP
+      ansible.builtin.apt:
+        name:
+          - slapd
+          - ldap-utils
+        state: absent
+        purge: yes

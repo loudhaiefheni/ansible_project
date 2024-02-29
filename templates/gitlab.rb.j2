@@ -1,0 +1,28 @@
+# /etc/gitlab/gitlab.rb
+
+## LDAP Configuration
+gitlab_rails['ldap_enabled'] = true
+
+##! **Remember to close this block with 'EOS' below**
+gitlab_rails['ldap_servers'] = YAML.load <<-EOS
+  main: 
+    label: 'LDAP'
+    host: '{{ ldap_uri | replace("ldap://","") }}'
+    port: 389
+    uid: 'uid'
+    bind_dn: '{{ ldap_bind_dn }}'
+    password: '{{ ldap_bind_password }}'
+    encryption: 'plain' # "start_tls" or "simple_tls" or "plain"
+    verify_certificates: true
+    smartcard_auth: false
+    active_directory: false
+    allow_username_or_email_login: false
+    lowercase_usernames: false
+    block_auto_created_users: false
+    base: '{{ ldap_base }}'
+    user_filter: ''
+    ## EE only
+    group_base: ''
+    admin_group: ''
+    sync_ssh_keys: false
+EOS

@@ -1,13 +1,16 @@
 ---
-- name: Configure slapd
+- name: Configure slapd from the start
   hosts: all
   become: yes  # Necessary to have root privileges
+  vars_files:
+    - ldap_password.yml
 
   tasks:
     - name: Ensure slapd is installed
       apt:
         name: slapd
         state: present
+        update_cache: yes  # Ensure the package database is updated before installing
 
     - name: Stop slapd service before reconfiguration
       service:
@@ -21,17 +24,35 @@
         vtype: "{{ item.vtype }}"
         value: "{{ item.value }}"
         unseen: "{{ item.unseen | default('no') }}"
-      with_items:
+      loop:
         - { question: 'slapd/no_configuration', vtype: 'boolean', value: 'false' }
         - { question: 'slapd/domain', vtype: 'string', value: 'istycorp.fr' }
         - { question: 'slapd/organization', vtype: 'string', value: 'istycorp' }
-        - { question: 'slapd/password1', vtype: 'password', value: 'Heni123456789!', unseen: 'yes' }
-        - { question: 'slapd/password2', vtype: 'password', value: 'Heni123456789!', unseen: 'yes' }
+        - { question: 'slapd/password1', vtype: 'password', value: 'Heni123456789!' }
+        - { question: 'slapd/password2', vtype: 'password', value: 'Heni123456789!' }
         - { question: 'slapd/purge_database', vtype: 'boolean', value: 'true' }
         - { question: 'slapd/move_old_database', vtype: 'boolean', value: 'true' }
+        - { question: 'slapd/backend', vtype: 'select', value: 'MDB' }
+        - { question: 'slapd/allow_ldap_v2', vtype: 'boolean', value: 'false' }
+        - { question: 'slapd/dump_database', vtype: 'select', value: 'when needed' }
+        - { question: 'slapd/dump_database_destdir', vtype: 'string', value: '/var/backups/slapd-VERSION' }
 
     - name: Reconfigure slapd
       command: dpkg-reconfigure -f noninteractive slapd
+
+    - name: Create LDIF file to fix domain name
+      copy:
+        dest: "/tmp/fix-domain.ldif"
+        content: |
+          dn: dc=istycorp,dc=fr
+          changetype: modify
+          replace: o
+          o: istycorp
+
+    - name: Apply LDIF file to correct domain name
+      command: ldapmodify -x -D "cn=admin,dc=istycorp,dc=fr" -w "{{ ldap_admin_password }}" -f /tmp/fix-domain.ldif
+      ignore_errors: yes  # Use this if you're not sure the entry needs updating to avoid the playbook failing
+
 
     - name: Start slapd service after reconfiguration
       service:

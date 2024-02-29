@@ -1,0 +1,92 @@
+---
+- name: Install and configure Gitea with LDAP
+  hosts: all
+  become: yes
+  vars_files:
+    - ldap_password.yml
+
+  tasks:
+    - name: Install Git
+      package:
+        name: git
+        state: present
+
+    - name: Download Gitea binary
+      get_url:
+        url: https://dl.gitea.io/gitea/1.15.6/gitea-1.15.6-linux-amd64
+        dest: /usr/local/bin/gitea
+        mode: '0755'
+
+    - name: Create Gitea user
+      user:
+        name: gitea
+        system: yes
+        shell: /bin/bash
+
+    - name: Create required directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: gitea
+        group: gitea
+        mode: '0755'
+      loop:
+        - /var/lib/gitea
+        - /etc/gitea
+        - /var/log/gitea
+
+    - name: Initialize Gitea service
+      copy:
+        dest: /etc/systemd/system/gitea.service
+        content: |
+          [Unit]
+          Description=Gitea (Git with a cup of tea)
+          After=syslog.target
+          After=network.target
+
+          [Service]
+          RestartSec=2s
+          Type=simple
+          User=gitea
+          Group=gitea
+          WorkingDirectory=/var/lib/gitea/
+          ExecStart=/usr/local/bin/gitea web -c /etc/gitea/app.ini
+          Restart=always
+          Environment=USER=gitea HOME=/home/gitea GITEA_WORK_DIR=/var/lib/gitea
+          CAPABILITY_BOUNDING_SET=CAP_NET_BIND_SERVICE
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Start Gitea service
+
+    - name: Create app.ini for Gitea
+      template:
+        src: templates/app.ini.j2
+        dest: /etc/gitea/app.ini
+        owner: gitea
+        group: gitea
+        mode: '0600'
+      vars:
+        ldap_host: "ldap://{{ ansible_host }}"
+        ldap_port: 389
+        ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+        ldap_bind_password: "{{ ldap_admin_password }}"
+        ldap_user_base: "ou=people,dc=istycorp,dc=fr"
+        ldap_attribute_username: "uid"
+        ldap_attribute_name: "cn"
+        ldap_attribute_surname: "sn"
+        ldap_attribute_mail: "mail"
+        ldap_search_filter: "(objectClass=posixAccount)"
+      notify: Restart Gitea service
+
+  handlers:
+    - name: Start Gitea service
+      systemd:
+        name: gitea
+        state: started
+        enabled: yes
+
+    - name: Restart Gitea service
+      systemd:
+        name: gitea
+        state: restarted

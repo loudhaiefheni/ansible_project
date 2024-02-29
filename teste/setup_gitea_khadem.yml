@@ -1,0 +1,157 @@
+- name: Install and configure Gitea with LDAP
+  hosts: all
+  become: yes
+  tasks:
+    - name: Set initial users list to empty
+      set_fact:
+        users: []
+
+    - name: Read LDIF files for users
+      set_fact:
+        users: "{{ users + [{'content': lookup('file', 'templates/' + item)}] }}"
+      loop: 
+        - user1.ldif
+        - user2.ldif
+        - user3.ldif
+        - user4.ldif
+      loop_control:
+        loop_var: item
+
+    - name: Extract values from ldif content for each user
+      set_fact:
+        login_name: "{{ item.content | regex_search('uid=(.*?),ou=people', '\\1') | first }}"
+        username: "{{ item.content | regex_search('cn: (.*)', '\\1') | first }}"
+        email: "{{ item.content | regex_search('mail: (.*)', '\\1') | first }}"
+        password: "{{ item.content | regex_search('userPassword: (.*)', '\\1') | first }}"
+      loop: "{{ users }}"
+      loop_control:
+        loop_var: item
+
+    # Le reste de vos tâches ici sans imbriquation incorrecte.
+
+#    - name: Use variables for further tasks
+#      debug:
+#        msg:
+#          - "Login Name: {{ login_name }}"
+#          - "Username: {{ username }}"
+#          - "Email: {{ email }}"
+#          - "Password: {{ password }}"
+
+    - name: Install Git
+      package:
+        name: git
+        state: present
+
+    - name: Download Gitea binary
+      get_url:
+        url: https://dl.gitea.io/gitea/1.15.6/gitea-1.15.6-linux-amd64
+        dest: /usr/local/bin/gitea
+        mode: '0755'
+
+    - name: Create Gitea user
+      user:
+        name: gitea
+        system: yes
+        shell: /bin/bash
+
+    - name: Create required directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: gitea
+        group: gitea
+        mode: '0755'
+      loop:
+        - /var/lib/gitea
+        - /etc/gitea
+        - /var/log/gitea
+
+    - name: Initialize Gitea service
+      copy:
+        dest: /etc/systemd/system/gitea.service
+        content: |
+          [Unit]
+          Description=Gitea (Git with a cup of tea)
+          After=syslog.target
+          After=network.target
+
+          [Service]
+          RestartSec=2s
+          Type=simple
+          User=gitea
+          Group=gitea
+          WorkingDirectory=/var/lib/gitea/
+          ExecStart=/usr/local/bin/gitea web -c /etc/gitea/app.ini
+          Restart=always
+          Environment=USER=gitea HOME=/home/gitea GITEA_WORK_DIR=/var/lib/gitea
+          CAPABILITY_BOUNDING_SET=CAP_NET_BIND_SERVICE
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Start Gitea service
+
+    - name: Create app.ini for Gitea
+      template:
+        src: templates/app.ini.j2
+        dest: /etc/gitea/app.ini
+        owner: gitea
+        group: gitea
+        mode: '0600'
+      vars:
+        ldap_host: "ldap://{{ ansible_host }}"
+        ldap_port: 389
+        ldap_bind_dn: "cn=admin,dc=istycorp,dc=fr"
+        ldap_bind_password: "Heni123456789!"
+        ldap_user_base: "ou=people,dc=istycorp,dc=fr"
+        ldap_attribute_username: "uid"
+        ldap_attribute_name: "cn"
+        ldap_attribute_surname: "sn"
+        ldap_attribute_mail: "mail"
+        ldap_search_filter: "(objectClass=posixAccount)"
+      notify: Restart Gitea service
+
+    - name: Read Gitea API token from file
+      slurp:
+        src: /etc/gitea/token
+      register: gitea_api_token_raw
+
+    - name: Set Gitea API token variable
+      set_fact:
+        gitea_api_token: "{{ gitea_api_token_raw['content'] | b64decode | trim }}"
+
+    - name: Extract and set users information
+      set_fact:
+        users_info: "{{ users_info | default([]) + [ {'login_name': item.content | regex_search('uid=(.*?),ou=people', '\\1') | first, 'username': item.content | regex_search('cn: (.*)', '\\1') | first, 'email': item.content | regex_search('mail: (.*)', '\\1') | first, 'password': item.content | regex_search('userPassword: (.*)', '\\1') | first} ] }}"
+      loop: "{{ users }}"
+      loop_control:
+        loop_var: item
+
+    - name: Create Gitea users
+      uri:
+        url: "http://localhost:3000/api/v1/admin/users"
+        method: POST
+        body_format: json
+        headers:
+          Authorization: "token {{ gitea_api_token }}"
+        body:
+          source_id: 0
+          login_name: "{{ item.login_name }}"
+          username: "{{ item.username }}"
+          email: "{{ item.email }}"
+          password: "{{ item.password }}"
+          must_change_password: false
+          status_code: 201
+      loop: "{{ users_info }}"
+      register: create_users_response
+
+  handlers:
+    - name: Start Gitea service
+      systemd:
+        name: gitea
+        state: started
+        enabled: yes
+
+    - name: Restart Gitea service
+      systemd:
+        name: gitea
+        state: restarted
